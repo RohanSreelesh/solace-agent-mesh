@@ -75,11 +75,18 @@ shared_config:
       type: "memory"
       default_behavior: "PERSISTENT"
     
-    # Default artifact service configuration
+    # Default artifact service configuration (filesystem)
     artifact_service: &default_artifact_service
       type: "filesystem"
       base_path: "/tmp/samv2"
       artifact_scope: namespace
+    
+    # Alternative S3 artifact service configuration
+    # s3_artifact_service: &s3_artifact_service
+    #   type: "s3"
+    #   bucket_name: ${S3_BUCKET_NAME}
+    #   region: ${S3_REGION}
+    #   artifact_scope: namespace
     
     # Default data tools configuration
     data_tools_config: &default_data_tools_config
@@ -164,11 +171,50 @@ The `artifact_service` is responsible for managing artifacts, which are files or
 
 | Parameter | Options | Description | Default |
 | :--- | :--- | :--- | :--- |
-| `type` | `memory`, `gcs`, `filesystem` | Service type for artifact storage. Use `memory` for in-memory, `gcs` for Google Cloud Storage, or `filesystem` for local file storage. | `memory` |
+| `type` | `memory`, `gcs`, `filesystem`, `s3` | Service type for artifact storage. Use `memory` for in-memory, `gcs` for Google Cloud Storage, `filesystem` for local file storage, or `s3` for Amazon S3 compatible storage. | `memory` |
 | `base_path` | local path | Base directory path for storing artifacts. Required only if `type` is `filesystem`. | (none) |
-| `bucket_name` | bucket name | Google Cloud Storage bucket name. Required only if `type` is `gcs`. | (none) |
+| `bucket_name` | bucket name | Storage bucket name. Required for `gcs` (Google Cloud Storage bucket) or `s3` (S3 bucket name). | (none) |
+| `endpoint_url` | URL | S3 endpoint URL. Optional for AWS S3, required for S3-compatible services like MinIO. Required only if `type` is `s3`. | (none) |
+| `region` | region name | AWS region for S3 storage (e.g., us-east-1). Required only if `type` is `s3`. | (none) |
 | `artifact_scope` | `namespace`, `app` | Scope for artifact sharing. `namespace`: shared by all components in the namespace. `app`: isolated by agent/gateway name. Must be consistent for all components in the same process. | `namespace` |
 | `artifact_scope_value` | custom scope id | Custom identifier for artifact scope. Required if `artifact_scope` is set to a custom value. | (none) |
+
+###### S3 Artifact Service Configuration
+
+When using `type: s3`, you can configure the artifact service to use Amazon S3 or S3-compatible storage:
+
+```yaml
+# Example S3 configuration for AWS S3
+artifact_service: &s3_artifact_service
+  type: "s3"
+  bucket_name: ${S3_BUCKET_NAME}
+  region: ${S3_REGION}  # e.g., us-east-1
+  artifact_scope: namespace
+
+# Example S3 configuration for S3-compatible storage (MinIO, etc.)
+artifact_service: &s3_compatible_artifact_service
+  type: "s3"
+  bucket_name: ${S3_BUCKET_NAME}
+  endpoint_url: ${S3_ENDPOINT_URL}  # e.g., https://minio.example.com
+  region: ${S3_REGION}
+  artifact_scope: namespace
+```
+
+**Required Environment Variables for S3:**
+- `AWS_ACCESS_KEY_ID`: Your AWS access key ID
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
+- `S3_BUCKET_NAME`: Name of your S3 bucket
+- `S3_REGION`: AWS region (e.g., us-east-1)
+- `S3_ENDPOINT_URL`: S3 endpoint URL (optional for AWS S3, required for S3-compatible services)
+
+**Required S3 Permissions:**
+The IAM user or role must have the following minimum permissions for the specified bucket:
+- `s3:GetObject`: Read artifacts from the bucket
+- `s3:PutObject`: Store new artifacts to the bucket
+- `s3:DeleteObject`: Delete artifacts from the bucket
+- `s3:ListBucket`: List bucket contents
+
+See the [S3 artifact storage example](https://github.com/RohanSreelesh/solace-agent-mesh/blob/main/examples/s3_artifact_storage_example.yaml) for complete configuration examples.
 
 ##### Data Tools Config
 
